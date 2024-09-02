@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:realm/realm.dart';
 import 'package:view_north_app/animated_car_park_tile.dart';
 import 'package:view_north_app/models/car_park.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'car_park_list_screen.dart';
+import 'car_park_map_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,14 +26,11 @@ void main() async {
 
     final realm = Realm(config);
 
-    // Subscribe to all CarParks or with specific filters
+    // Subscribe to all CarParks
     realm.subscriptions.update((mutableSubscriptions) {
       mutableSubscriptions.add(realm.all<StaticCarPark>(),
           name: 'all_carparks');
     });
-
-    // Optionally wait until subscriptions are in a "Complete" state
-    await realm.subscriptions.waitForSynchronization();
 
     runApp(MyApp(realm: realm));
   } else {
@@ -46,44 +46,39 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(title: Text('Car Parks')),
-        body: realm != null
-            ? StaticCarParkList(realm: realm!)
-            : Center(child: Text('Failed to load data')),
-      ),
+      home: realm != null
+          ? CarParkTabGroup(realm: realm!)
+          : Scaffold(body: Center(child: Text('Failed to load data'))),
     );
   }
 }
 
-class StaticCarParkList extends StatelessWidget {
+class CarParkTabGroup extends StatelessWidget {
   final Realm realm;
 
-  StaticCarParkList({required this.realm});
+  CarParkTabGroup({required this.realm});
 
   @override
   Widget build(BuildContext context) {
-    final staticCarParks = realm.all<StaticCarPark>();
-
-    return StreamBuilder<RealmResultsChanges<StaticCarPark>>(
-      stream: staticCarParks.changes,
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          // final sortedStaticCarParks = snapshot.data!.results.toList()
-          //   ..sort((a, b) => a.name.compareTo(b.name));
-          final sortedStaticCarParks = snapshot.data!.results.toList()
-            ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
-          return ListView.builder(
-            itemCount: sortedStaticCarParks.length,
-            itemBuilder: (context, index) {
-              final staticCarPark = sortedStaticCarParks[index];
-              return AnimatedCarParkTile(carPark: staticCarPark);
-            },
-          );
-        } else {
-          return Center(child: CircularProgressIndicator());
-        }
-      },
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Car Parks'),
+          bottom: TabBar(
+            tabs: [
+              Tab(text: "List", icon: Icon(Icons.list)),
+              Tab(text: "Map", icon: Icon(Icons.map)),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            CarParkListScreen(realm: realm),
+            CarParkMapScreen(realm: realm),
+          ],
+        ),
+      ),
     );
   }
 }
